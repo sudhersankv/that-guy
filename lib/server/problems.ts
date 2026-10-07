@@ -154,7 +154,11 @@ async function findPlaces(triage: Triage, here: { lat: number; lng: number }): P
     }));
     await upsert("providers", rows);
     await upsert("agent_cache", { key: cacheKey, result: { ids: rows.map((r) => r.id) } });
-    return rows;
+    // Also consider pros of this trade the network already knows nearby.
+    const known = await select<ProviderRow>("providers", `trade=ilike.${encodeURIComponent(triage.trade)}&limit=20`);
+    const seen = new Set(rows.map((r) => r.id));
+    const near = known.filter((k) => !seen.has(k.id) && milesBetween(here, { lat: k.lat, lng: k.lng }) < 6);
+    return [...rows, ...near].slice(0, 14);
   } catch (e) {
     console.warn("[guy] monid failed, using cache:", (e as Error).message);
     const [cached] = await select<{ result: { ids: string[] } }>("agent_cache", `key=eq.${encodeURIComponent(cacheKey)}`);
