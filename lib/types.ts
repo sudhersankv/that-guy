@@ -1,141 +1,130 @@
-// Domain types for That Guy: word of mouth, automated.
-// Each household has an agent ("guy"). Agents ask each other who their humans
-// trusted (and who to avoid), score the pros, and handle the rest.
+// The contract between the UI and the backend. The UI renders only what these
+// types carry; titles, questions, cards, signals, emails and transcripts all
+// come from the API (mocked in lib/mock*.ts for now).
 
-export type UserId = "alex" | "dana";
-export type Trade = "plumber" | "roofer" | "lawyer";
-export type ScenarioKey = "pipe" | "roof" | "legal";
-
-/** A neighbor's agent, placed by distance from the current household. */
-export interface Agent {
+/** Another user's agent in the private neighborhood network. */
+export interface NeighborGuy {
   id: string;
   /** "Leo's guy" */
   name: string;
-  /** "Leo" */
-  human: string;
   distanceMi: number;
 }
 
-export interface Pro {
+export interface Provider {
   id: string;
   name: string;
-  /** Who replies by email, e.g. "Mike". */
-  contact: string;
-  trade: Trade;
+  trade: string;
   phone: string;
   email: string;
-  /** Where That Guy first hears about them. */
-  source: "network" | "public";
+  distanceMi: number;
+  /** Public (Google) rating, if any. */
   rating?: number;
   reviews?: number;
-  distanceMi: number;
+  /** One line from your guy on why this one. */
+  why: string;
 }
 
-/** One household's experience with a pro, shared agent-to-agent. */
-export interface Signal {
+export type ReviewOutcome = "great" | "ok" | "bad" | "no_show";
+
+/** What actually happened, shared agent-to-agent. */
+export interface Review {
   id: string;
-  agentId: string;
-  proId: string;
-  kind: "vouch" | "warning";
-  /** How the agent phrases it on the wire. */
-  note: string;
-  pricePaid?: number;
-  /** "YYYY-MM" */
+  guyId: string;
+  providerId: string;
+  outcome: ReviewOutcome;
+  quote: string;
+  price?: number;
+  /** ISO date */
   date: string;
+  rating: number;
 }
 
-export interface TrustScore {
-  proId: string;
-  /** 0–100 */
-  score: number;
+/** What the private network says about a provider, ready to render. */
+export interface NetworkSignal {
   vouches: number;
-  warnings: number;
+  /** Best recent quote from a vouching neighbor's guy. */
+  quote?: { text: string; by: string };
+  /** e.g. { count: 1, label: "no-show" } */
+  warning?: { count: number; label: string; by?: string };
+  /** No network history: public reviews only. */
+  publicOnly: boolean;
 }
 
-export interface TrustRow extends TrustScore {
-  pro: Pro;
-  /** Latest signal, "Mar 2026". */
-  recency?: string;
-  network: boolean;
-  listed: boolean;
-  struck: boolean;
-  /** Human names of the households that vouched ("Leo", "you"). */
-  vouchers: string[];
+export interface Candidate {
+  provider: Provider;
+  signal: NetworkSignal;
+  rank: number;
 }
 
-export type StepKind = "info" | "safety" | "network" | "reply" | "email" | "warn" | "done" | "stop";
-
-export interface Step {
-  id: string;
-  label: string;
-  kind: StepKind;
-  /** ms since the case started */
-  t: number;
-}
-
-export type CaseStatus = "working" | "sorted" | "booked" | "stopped" | "followup" | "vouched";
-
-export interface Case {
-  id: string;
-  user: UserId;
-  scenario: ScenarioKey;
-  trade: Trade;
-  urgency: "emergency" | "soon";
-  title: string;
-  startedAt: number;
-  steps: Step[];
-  chosenProId?: string;
-  status: CaseStatus;
-  /** "Sorted. Mike's Plumbing is coming at 4pm, ~$280." */
-  sortedText?: string;
-  trustLine?: string;
-  vetoEndsAt?: number;
-  vetoMs: number;
-  /** People reached by the shared vouch. */
-  helped?: number;
-  photos: number;
-}
-
-export type LogDir = "out" | "in" | "sys" | "email-out" | "email-in" | "share";
-
-export interface LogLine {
-  id: string;
-  caseId: string;
-  /** ms since the case started */
-  t: number;
-  dir: LogDir;
-  who?: string;
-  to?: string;
+export interface Question {
   text: string;
-  tone?: "good" | "bad" | "muted";
+  quickReplies: string[];
 }
 
-export type PulseTone = "ask" | "good" | "bad" | "muted" | "share";
-
-/** A message travelling along a graph edge (for the console animation). */
-export interface Pulse {
-  id: string;
-  caseId: string;
+export interface IntroEmail {
   from: string;
   to: string;
-  at: number;
-  tone: PulseTone;
+  subject: string;
+  body: string;
+  sentAt: number;
 }
 
-export type AgentStatus = "idle" | "asked" | "vouch" | "warning" | "none" | "offline" | "shared";
-
-/** What a case has learned so far. */
-export interface Reveal {
-  signalIds: string[];
-  publicIds: string[];
-  agents: Record<string, AgentStatus>;
-  scored: boolean;
-  emailed: string[];
+export interface Intro {
+  providerId: string;
+  provider: Provider;
+  email: IntroEmail;
 }
 
-export interface Note {
-  audioBlob: Blob | null;
-  /** Sent to the backend for understanding; never shown. */
-  frames: string[];
-  photos: number;
+export type DoneOutcome = "yes" | "no" | "didnt_use";
+
+export interface Feedback {
+  providerId: string;
+  outcome: Exclude<DoneOutcome, "didnt_use">;
+  transcript: string;
+  sharedAt: number;
+}
+
+export type ProblemStatus =
+  | "working" //  your guy is on it
+  | "question" // needs one more thing
+  | "picking" //  swipe the shortlist
+  | "contacted" // intros sent, you call
+  | "checkin" //  "Did X get it done?"
+  | "feedback" // record how it went
+  | "done";
+
+export interface Problem {
+  id: string;
+  title: string;
+  status: ProblemStatus;
+  createdAt: number;
+  /** Latest line from your guy while working ("Asking 8 neighbors' guys…"). */
+  activity?: string;
+  /** Header line for the deck ("Your guy checked 12 nearby pros…"). */
+  summary?: string;
+  question?: Question;
+  answer?: string;
+  /** Ranked best → worst. Empty until status is "picking". */
+  candidates: Candidate[];
+  picks: string[];
+  intros: Intro[];
+  /** Who the "Did X get it done?" check is about. */
+  checkin?: Provider;
+  outcomes: Record<string, DoneOutcome>;
+  feedback?: Feedback;
+}
+
+export interface ProblemInput {
+  text?: string;
+  photos?: File[];
+  audio?: Blob | null;
+  videoFrames?: string[];
+}
+
+export interface Answer {
+  /** A quick-reply chip, or typed text. */
+  text?: string;
+  photos?: File[];
+  audio?: Blob | null;
+  videoFrames?: string[];
 }

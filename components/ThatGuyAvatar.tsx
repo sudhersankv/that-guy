@@ -312,19 +312,3 @@ export function ThatGuyAvatar({
     </svg>
   );
 }
-
-/** He peeks up from the bottom edge of the screen. Decorative only. */
-export function MascotPeek({ mood = "idle", bottom = 0 }: { mood?: Mood; bottom?: number }) {
-  return (
-    <div className="pointer-events-none fixed inset-x-0 z-30 mx-auto w-full max-w-[430px]" style={{ bottom }} aria-hidden>
-      <motion.div
-        className="absolute right-3 bottom-0"
-        initial={{ y: 120 }}
-        animate={{ y: 34 }}
-        transition={{ type: "spring", stiffness: 140, damping: 14, delay: 0.3 }}
-      >
-        <ThatGuyAvatar mood={mood} size={96} />
-      </motion.div>
-    </div>
-  );
-}

@@ -68,6 +68,7 @@ export function RecordBubble({
   simulate = false,
   hints = { idle: "Hold & tell me", recording: "Mhm… go on…", sent: "Say no more." },
   extraControls,
+  repeatable = false,
   disabled,
   onSend,
   onRecordingChange,
@@ -83,6 +84,8 @@ export function RecordBubble({
   simulate?: boolean;
   hints?: { idle: string; recording: string; sent: string };
   extraControls?: React.ReactNode;
+  /** Allow recording again after a send (e.g. inside a composer). */
+  repeatable?: boolean;
   disabled?: boolean;
   onSend: (r: Recording) => void;
   onRecordingChange?: (recording: boolean) => void;
@@ -91,7 +94,7 @@ export function RecordBubble({
   const pressedAt = useRef(0);
   const [sent, setSent] = useState(false);
   const send = (r: Recording) => {
-    setSent(true);
+    if (!repeatable) setSent(true);
     onSend(r);
   };
   const rec = useRecorder({ maxMs, maxFrames, onAutoStop: send, initialVideo: !startVoice });

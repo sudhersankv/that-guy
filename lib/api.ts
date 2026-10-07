@@ -1,64 +1,49 @@
-// The only module components talk to. Today it fronts the scripted mock engine;
-// to go live, keep these signatures and swap the bodies for real calls (the
-// `use*` hooks become subscriptions to a realtime channel).
+// The only module the UI talks to. Every function is async and returns plain
+// data from lib/types.ts. Right now they call the in-browser mock backend; to go
+// live, replace each body with a fetch to the real API and delete
+// lib/mock.ts + lib/mockBackend.ts. No component needs to change.
 
-"use client";
+import * as mock from "./mockBackend";
+import type { Answer, DoneOutcome, Problem, ProblemInput } from "./types";
 
-import { useSyncExternalStore } from "react";
-import * as engine from "./engine";
-import { HELPED_PEOPLE, PROS, SCENARIOS, SCENARIO_ORDER, USERS, networkFor } from "./mock";
-import type { Case, LogLine, Note, ScenarioKey, TrustRow, UserId } from "./types";
+const latency = (min = 250, max = 700) => new Promise((r) => setTimeout(r, min + Math.random() * (max - min)));
 
-const latency = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-export const config = { users: USERS, scenarios: SCENARIOS, scenarioOrder: SCENARIO_ORDER, helped: HELPED_PEOPLE, pros: PROS, networkFor };
-
-// --- Spec'd API ---------------------------------------------------------------
-
-/** Drop a video / voice note (+ photos). That Guy takes it from here. */
-export async function drop(note: Note): Promise<Case> {
-  await latency(450);
-  return engine.startCase(note);
+/** Dump a problem: any mix of text, photos, a voice note and a video. */
+export async function submitProblem(input: ProblemInput): Promise<Problem> {
+  await latency(400, 800);
+  return mock.submitProblem(input);
 }
 
-export async function getCase(id: string): Promise<Case | undefined> {
-  return engine.getState().cases[id];
+export async function listProblems(): Promise<Problem[]> {
+  await latency(150, 300);
+  return mock.listProblems();
 }
 
-export async function getNetworkLog(caseId: string): Promise<LogLine[]> {
-  return engine.getState().log.filter((l) => l.caseId === caseId);
+export async function getProblem(id: string): Promise<Problem | null> {
+  await latency(150, 300);
+  return mock.getProblem(id);
 }
 
-export async function getTrustTable(caseId: string): Promise<TrustRow[]> {
-  return engine.tableFor(engine.getState(), caseId);
+/** Answer the (single) follow-up question: a quick reply and/or composer input. */
+export async function answerQuestion(id: string, answer: Answer): Promise<Problem> {
+  await latency();
+  return mock.answerQuestion(id, answer);
 }
 
-/** Voice-note review after the job. Shared to every neighbor agent. */
-export async function submitVouch(caseId: string, _note?: Note): Promise<void> {
-  void _note;
-  await latency(400);
-  engine.vouch(caseId);
+/** Pick providers from the deck. Your guy emails each of them an intro. */
+export async function pickProviders(id: string, providerIds: string[]): Promise<Problem> {
+  await latency(600, 1100);
+  return mock.pickProviders(id, providerIds);
 }
 
-export async function switchUser(user: UserId): Promise<void> {
-  engine.setUser(user);
+export async function markDone(id: string, providerId: string, outcome: DoneOutcome): Promise<Problem> {
+  await latency();
+  return mock.markDone(id, providerId, outcome);
 }
 
-// --- Extra controls ------------------------------------------------------------
-
-export const stopBooking = (caseId: string) => engine.stop(caseId);
-export const nextDay = (caseId?: string) => engine.nextDay(caseId);
-export const setScenario = (s: ScenarioKey) => engine.setScenario(s);
-export const setDemoMode = (on: boolean) => engine.setDemoMode(on);
-export const runDemo = () => engine.runDemo();
-export const resetDemo = () => engine.reset();
-
-// --- Live hooks ----------------------------------------------------------------
-
-export type Snapshot = engine.State;
-
-export function useSnapshot(): Snapshot {
-  return useSyncExternalStore(engine.subscribe, engine.getState, engine.getServerState);
+/** Voice feedback. The backend transcribes it and shares it with the network. */
+export async function submitFeedback(id: string, providerId: string, audioBlob: Blob | null): Promise<Problem> {
+  void audioBlob;
+  await latency(700, 1200);
+  return mock.submitFeedback(id, providerId);
 }
-
-export const tableFor = engine.tableFor;

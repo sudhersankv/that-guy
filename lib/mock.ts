@@ -1,181 +1,120 @@
-// Mock world for the demo. Deterministic: same input, same story, every run.
+// MOCK DATA ONLY. Delete this file (and lib/mockBackend.ts) when the real backend
+// is wired up. The UI never imports from here, only lib/api.ts does.
 // All businesses are fictional; phone numbers are in the reserved 555-01xx range.
 
-import type { Agent, Pro, ScenarioKey, Signal, Trade, UserId } from "./types";
+import type { NeighborGuy, Provider, Question, Review } from "./types";
 
-export const TODAY = "2026-10";
-export const ZIP = "94110";
-
-export const USERS: Record<UserId, { id: UserId; label: string; human: string }> = {
-  alex: { id: "alex", label: "Me", human: "Alex" },
-  dana: { id: "dana", label: "Dana", human: "Dana" },
+export const MOCK_CONFIG = {
+  /** "Working" before cards (or the follow-up question) appear. */
+  workMs: 3000,
+  /** Working again after you answer the follow-up. */
+  afterAnswerMs: 2000,
+  /** After intros go out, when your guy asks "Did X get it done?". */
+  checkinAfterMs: 20000,
+  /** How many cards to show. */
+  deckSize: 5,
+  me: { name: "Me", inbox: "your-guy@inbox.thatguy.app", area: "the Mission" },
+  storageKey: "thatguy:mock:v3",
 };
 
-const HUMANS: Record<string, string> = {
-  alex: "Alex",
-  dana: "Dana",
-  leo: "Leo",
-  priya: "Priya",
-  sam: "Sam",
-  ana: "Ana",
-  raj: "Raj",
-  wen: "Wen",
-};
-
-/**
- * Each household's neighbor agents, in the order they answer, with distance
- * from that household. Agents answer at 6, 8, 10, 12, 13 and 14 s.
- */
-const NETWORKS: Record<UserId, [string, number][]> = {
-  alex: [
-    ["leo", 0.2],
-    ["priya", 0.35],
-    ["dana", 0.5],
-    ["sam", 0.6],
-    ["ana", 0.8],
-    ["raj", 1.0],
-  ],
-  dana: [
-    ["leo", 0.3],
-    ["priya", 0.6],
-    ["alex", 0.5],
-    ["sam", 0.75],
-    ["wen", 0.25],
-    ["raj", 0.9],
-  ],
-};
-
-export const REPLY_AT_MS = [6000, 8000, 10000, 12000, 13000, 14000];
-
-export function networkFor(user: UserId): Agent[] {
-  return NETWORKS[user].map(([id, distanceMi]) => ({ id, human: HUMANS[id], name: `${HUMANS[id]}'s guy`, distanceMi }));
-}
-
-export function humanOf(agentId: string) {
-  return HUMANS[agentId] ?? agentId;
-}
-
-export const PROS: Record<string, Pro> = Object.fromEntries(
-  (
-    [
-      // Plumbers
-      { id: "mike", name: "Mike's Plumbing", contact: "Mike", trade: "plumber", source: "network", distanceMi: 1.1, phone: "+14155550161", email: "mike@mikesplumbing.example" },
-      { id: "quickflow", name: "QuickFlow Plumbing", contact: "QuickFlow", trade: "plumber", source: "network", rating: 4.1, reviews: 88, distanceMi: 2.3, phone: "+14155550162", email: "jobs@quickflow.example" },
-      { id: "baydrain", name: "Bay Drain Co.", contact: "Bay Drain", trade: "plumber", source: "public", rating: 4.5, reviews: 140, distanceMi: 1.8, phone: "+14155550163", email: "service@baydrain.example" },
-      { id: "pipepros", name: "SF Pipe Pros", contact: "SF Pipe Pros", trade: "plumber", source: "public", rating: 4.3, reviews: 61, distanceMi: 2.9, phone: "+14155550164", email: "hi@sfpipepros.example" },
-      // Roofers
-      { id: "summit", name: "Summit Roofing", contact: "Summit", trade: "roofer", source: "network", distanceMi: 2.0, phone: "+14155550171", email: "crew@summitroofing.example" },
-      { id: "patchwork", name: "Patchwork Roofs", contact: "Patchwork", trade: "roofer", source: "network", rating: 3.9, reviews: 40, distanceMi: 3.2, phone: "+14155550172", email: "info@patchworkroofs.example" },
-      { id: "ggroof", name: "Golden Gate Roof Co.", contact: "Golden Gate Roof", trade: "roofer", source: "public", rating: 4.4, reviews: 112, distanceMi: 2.6, phone: "+14155550173", email: "office@ggroof.example" },
-      { id: "sunsetroof", name: "Sunset Roofers", contact: "Sunset Roofers", trade: "roofer", source: "public", rating: 4.2, reviews: 57, distanceMi: 4.1, phone: "+14155550174", email: "hello@sunsetroofers.example" },
-      // Tenant lawyers
-      { id: "baylegal", name: "Bay Legal Aid", contact: "Bay Legal Aid", trade: "lawyer", source: "public", rating: 4.8, reviews: 212, distanceMi: 1.4, phone: "+14155550181", email: "intake@baylegalaid.example" },
-      { id: "missiontenant", name: "Mission Tenant Law", contact: "Mission Tenant Law", trade: "lawyer", source: "public", rating: 4.7, reviews: 96, distanceMi: 0.9, phone: "+14155550182", email: "help@missiontenantlaw.example" },
-      { id: "hartcole", name: "Hart & Cole LLP", contact: "Hart & Cole", trade: "lawyer", source: "public", rating: 4.2, reviews: 40, distanceMi: 2.7, phone: "+14155550183", email: "contact@hartcole.example" },
-    ] satisfies Pro[]
-  ).map((p) => [p.id, p]),
-);
-
-/** What neighbors' households have been through. */
-export const SEED_SIGNALS: Signal[] = [
-  { id: "s-leo-mike", agentId: "leo", proId: "mike", kind: "vouch", note: "Mike's Plumbing. Came in 1h, $280, Mar 2026 ✅", pricePaid: 280, date: "2026-03" },
-  { id: "s-priya-qf", agentId: "priya", proId: "quickflow", kind: "warning", note: "Avoid QuickFlow. No-show twice ❌", date: "2026-01" },
-  { id: "s-dana-mike", agentId: "dana", proId: "mike", kind: "vouch", note: "Mike's again. Fair price ✅", pricePaid: 240, date: "2026-05" },
-  { id: "s-wen-mike", agentId: "wen", proId: "mike", kind: "vouch", note: "Mike's Plumbing. Fixed our water heater, honest quote ✅", pricePaid: 300, date: "2026-06" },
-  { id: "s-ana-summit", agentId: "ana", proId: "summit", kind: "vouch", note: "Summit Roofing. Fixed our flashing, $450, Feb 2026 ✅", pricePaid: 450, date: "2026-02" },
-  { id: "s-raj-summit", agentId: "raj", proId: "summit", kind: "vouch", note: "Summit again. Same-day tarp, then a proper fix ✅", pricePaid: 520, date: "2025-12" },
-  { id: "s-sam-patch", agentId: "sam", proId: "patchwork", kind: "warning", note: "Avoid Patchwork Roofs. Quoted $900, then ghosted ❌", date: "2026-04" },
+/** The one real account's simulated neighbors (their guys). */
+export const NEIGHBORS: NeighborGuy[] = [
+  { id: "leo", name: "Leo's guy", distanceMi: 0.2 },
+  { id: "priya", name: "Priya's guy", distanceMi: 0.3 },
+  { id: "dana", name: "Dana's guy", distanceMi: 0.5 },
+  { id: "sam", name: "Sam's guy", distanceMi: 0.6 },
+  { id: "ana", name: "Ana's guy", distanceMi: 0.8 },
+  { id: "raj", name: "Raj's guy", distanceMi: 0.9 },
+  { id: "wen", name: "Wen's guy", distanceMi: 1.1 },
+  { id: "marco", name: "Marco's guy", distanceMi: 1.3 },
 ];
 
-export interface ProReply {
-  /** Phone timeline: "4pm, ~$250–300" */
-  short: string;
-  /** Email text on the wire */
-  email: string;
-  /** "Mike's Plumbing is coming at 4pm, ~$280." */
-  sorted: string;
-  /** "4pm" for the booking line */
-  when: string;
-}
+const P = (p: Provider) => p;
 
-export interface Scenario {
-  key: ScenarioKey;
-  label: string;
+export const PROVIDERS: Provider[] = [
+  // Plumbers
+  P({ id: "mike", name: "Mike's Plumbing", trade: "Plumber", phone: "+14155550161", email: "mike@mikesplumbing.example", distanceMi: 1.1, rating: 4.7, reviews: 95, why: "Three neighbors swear by him for emergencies." }),
+  P({ id: "pipepros", name: "SF Pipe Pros", trade: "Plumber", phone: "+14155550164", email: "hi@sfpipepros.example", distanceMi: 2.0, rating: 4.4, reviews: 61, why: "Good after-hours rates; one neighbor's guy liked them." }),
+  P({ id: "mission", name: "Mission Plumbing & Heating", trade: "Plumber", phone: "+14155550165", email: "dispatch@missionph.example", distanceMi: 0.9, rating: 4.6, reviews: 212, why: "Closest, and strong public reviews." }),
+  P({ id: "ggplumb", name: "Golden Gate Plumbers", trade: "Plumber", phone: "+14155550166", email: "service@ggplumbers.example", distanceMi: 2.6, rating: 4.3, reviews: 140, why: "Big crew, can usually come same day." }),
+  P({ id: "quickflow", name: "QuickFlow Plumbing", trade: "Plumber", phone: "+14155550162", email: "jobs@quickflow.example", distanceMi: 1.6, rating: 4.1, reviews: 88, why: "Cheapest quote around, but read the warning." }),
+  // Plumbers your guy dropped (bad network history)
+  P({ id: "drippy", name: "Drip Doctors", trade: "Plumber", phone: "+14155550167", email: "x@dripdoctors.example", distanceMi: 1.4, rating: 3.9, reviews: 33, why: "" }),
+  P({ id: "fastfix", name: "FastFix Rooter", trade: "Plumber", phone: "+14155550168", email: "x@fastfix.example", distanceMi: 2.2, rating: 4.0, reviews: 51, why: "" }),
+  P({ id: "budget", name: "Budget Pipes", trade: "Plumber", phone: "+14155550169", email: "x@budgetpipes.example", distanceMi: 3.0, rating: 3.6, reviews: 19, why: "" }),
+  // Roofers
+  P({ id: "summit", name: "Summit Roofing", trade: "Roofer", phone: "+14155550171", email: "crew@summitroofing.example", distanceMi: 2.0, rating: 4.6, reviews: 73, why: "Two neighbors had leaks fixed and stayed dry." }),
+  P({ id: "sunset", name: "Sunset Roofers", trade: "Roofer", phone: "+14155550174", email: "hello@sunsetroofers.example", distanceMi: 3.1, rating: 4.2, reviews: 57, why: "Fair price on a flashing repair nearby." }),
+  P({ id: "ggroof", name: "Golden Gate Roof Co.", trade: "Roofer", phone: "+14155550173", email: "office@ggroof.example", distanceMi: 2.6, rating: 4.4, reviews: 112, why: "Solid public reviews, books within the week." }),
+  P({ id: "patchwork", name: "Patchwork Roofs", trade: "Roofer", phone: "+14155550172", email: "info@patchworkroofs.example", distanceMi: 3.2, rating: 3.9, reviews: 40, why: "Available fast, but a neighbor got burned." }),
+  // Roofers your guy dropped
+  P({ id: "tarpit", name: "Tar Pit Roofing", trade: "Roofer", phone: "+14155550175", email: "x@tarpit.example", distanceMi: 2.8, rating: 3.7, reviews: 22, why: "" }),
+  P({ id: "skyline", name: "Skyline Shingle", trade: "Roofer", phone: "+14155550176", email: "x@skyline.example", distanceMi: 4.0, rating: 4.0, reviews: 30, why: "" }),
+  // Not in any scenario (keeps the network realistic)
+  P({ id: "sparky", name: "Sparky Electric", trade: "Electrician", phone: "+14155550191", email: "hi@sparky.example", distanceMi: 1.0, rating: 4.8, reviews: 66, why: "" }),
+];
+
+/** ~20 past jobs, as told by neighbors' guys. */
+export const REVIEWS: Review[] = [
+  { id: "r1", guyId: "leo", providerId: "mike", outcome: "great", quote: "Fixed our frozen pipe same day", price: 250, date: "2026-01-14", rating: 5 },
+  { id: "r2", guyId: "dana", providerId: "mike", outcome: "great", quote: "Came in an hour, fair price", price: 240, date: "2026-05-02", rating: 5 },
+  { id: "r3", guyId: "wen", providerId: "mike", outcome: "great", quote: "Honest quote on our water heater", price: 300, date: "2026-06-21", rating: 4 },
+  { id: "r4", guyId: "ana", providerId: "pipepros", outcome: "ok", quote: "Late-night visit, did the job", price: 350, date: "2025-11-30", rating: 4 },
+  { id: "r5", guyId: "priya", providerId: "quickflow", outcome: "no_show", quote: "Never showed up, twice", date: "2026-01-09", rating: 1 },
+  { id: "r6", guyId: "sam", providerId: "drippy", outcome: "bad", quote: "Leak was back in a week", price: 180, date: "2025-12-03", rating: 2 },
+  { id: "r7", guyId: "raj", providerId: "drippy", outcome: "bad", quote: "Overcharged for a washer", price: 220, date: "2026-02-11", rating: 1 },
+  { id: "r8", guyId: "marco", providerId: "fastfix", outcome: "no_show", quote: "No-show, no call", date: "2026-03-18", rating: 1 },
+  { id: "r9", guyId: "leo", providerId: "fastfix", outcome: "bad", quote: "Flooded the bathroom worse", price: 400, date: "2025-10-22", rating: 1 },
+  { id: "r10", guyId: "wen", providerId: "budget", outcome: "bad", quote: "Cheap parts, broke again", price: 120, date: "2026-04-05", rating: 2 },
+  { id: "r11", guyId: "dana", providerId: "budget", outcome: "bad", quote: "Rude and slow", price: 160, date: "2026-07-12", rating: 2 },
+  { id: "r12", guyId: "ana", providerId: "summit", outcome: "great", quote: "Fixed our flashing, dry since", price: 450, date: "2026-02-17", rating: 5 },
+  { id: "r13", guyId: "raj", providerId: "summit", outcome: "great", quote: "Same-day tarp, then a proper fix", price: 520, date: "2025-12-08", rating: 5 },
+  { id: "r14", guyId: "priya", providerId: "sunset", outcome: "ok", quote: "Fair price, a bit slow", price: 380, date: "2026-03-29", rating: 4 },
+  { id: "r15", guyId: "sam", providerId: "patchwork", outcome: "no_show", quote: "Quoted $900, then ghosted", date: "2026-04-14", rating: 1 },
+  { id: "r16", guyId: "marco", providerId: "tarpit", outcome: "bad", quote: "Leak got worse after", price: 600, date: "2025-09-30", rating: 1 },
+  { id: "r17", guyId: "leo", providerId: "tarpit", outcome: "bad", quote: "Left debris all over the yard", price: 450, date: "2026-05-20", rating: 2 },
+  { id: "r18", guyId: "wen", providerId: "skyline", outcome: "no_show", quote: "Took a deposit, never came", price: 200, date: "2026-02-02", rating: 1 },
+  { id: "r19", guyId: "dana", providerId: "skyline", outcome: "bad", quote: "Wrong shingles, had to redo", price: 700, date: "2026-06-11", rating: 2 },
+  { id: "r20", guyId: "sam", providerId: "sparky", outcome: "great", quote: "Rewired the kitchen, clean work", price: 900, date: "2026-08-03", rating: 5 },
+];
+
+export interface MockScenario {
+  key: string;
   title: string;
-  trade: Trade;
-  tradeLabel: string;
-  urgency: "emergency" | "soon";
-  safety: string;
-  question: string;
-  emailAsk: string;
-  publicIds: string[];
-  /** Agents that don't answer this time. */
-  offline: string[];
-  replies: Record<string, ProReply>;
-  vouch: { stars: number; price: string; pricePaid?: number; note: string };
+  trade: string;
+  /** How a problem gets routed here from free text. */
+  keywords: string[];
+  /** Providers considered for this trade. */
+  providerIds: string[];
+  /** Extra pros checked but not worth showing (too far / closed). */
+  alsoChecked: number;
+  question?: Question;
+  /** Lines shown while your guy works, spread over the working time. */
+  activity: string[];
+  /** What the transcriber "hears" in the voice feedback. */
+  transcripts: { yes: string; no: string };
 }
 
-export const SCENARIOS: Record<ScenarioKey, Scenario> = {
-  pipe: {
+export const SCENARIOS: MockScenario[] = [
+  {
     key: "pipe",
-    label: "Burst pipe",
-    title: "Burst pipe",
-    trade: "plumber",
-    tradeLabel: "plumber",
-    urgency: "emergency",
-    safety: "Shut the valve under the sink.",
-    question: `Who did your humans use for an emergency plumber? ${ZIP}`,
-    emailAsk: "Burst pipe under the kitchen sink, valve's shut. Can you come today?",
-    publicIds: ["quickflow", "baydrain", "pipepros"],
-    offline: ["raj"],
-    replies: {
-      mike: { short: "4pm, ~$250–300", email: "4pm today works. Probably $250–300.", sorted: "Mike's Plumbing is coming at 4pm, ~$280.", when: "4pm today" },
-      baydrain: { short: "tomorrow 10am, ~$320", email: "Earliest is tomorrow 10am, around $320.", sorted: "Bay Drain Co. is coming tomorrow at 10am, ~$320.", when: "tomorrow 10am" },
-      pipepros: { short: "tonight 8pm, ~$350", email: "Tonight 8pm, $350 after-hours.", sorted: "SF Pipe Pros is coming tonight at 8pm, ~$350.", when: "8pm tonight" },
-    },
-    vouch: { stars: 5, price: "$260", pricePaid: 260, note: "Mike's Plumbing. Fixed our burst pipe, $260 ★5 ✅" },
+    title: "Burst pipe under the sink",
+    trade: "plumbers",
+    keywords: ["pipe", "frozen", "burst", "water", "sink", "leak", "plumb", "drain", "toilet", "faucet"],
+    providerIds: ["mike", "pipepros", "mission", "ggplumb", "quickflow", "drippy", "fastfix", "budget"],
+    alsoChecked: 4,
+    question: { text: "Is the water shut off?", quickReplies: ["Yes", "No", "Can't find the valve"] },
+    activity: ["Reading what you sent…", "Asking 8 neighbors' guys about plumbers…", "Checking 12 nearby pros…"],
+    transcripts: { yes: "Great, $240, came in an hour.", no: "Didn't fix it. Charged $150 and left." },
   },
-  roof: {
+  {
     key: "roof",
-    label: "Roof leak",
     title: "Roof leak",
-    trade: "roofer",
-    tradeLabel: "roofer",
-    urgency: "soon",
-    safety: "Move stuff away from the drip and set out a bucket. Stay off the roof.",
-    question: `Who did your humans use for a roof leak? ${ZIP}`,
-    emailAsk: "Leak through the ceiling by the back window after last night's rain. When can you look?",
-    publicIds: ["patchwork", "ggroof", "sunsetroof"],
-    offline: ["leo"],
-    replies: {
-      summit: { short: "tomorrow 9am, ~$400–500", email: "Tomorrow 9am. Likely flashing, $400–500.", sorted: "Summit Roofing is coming tomorrow at 9am, ~$450.", when: "tomorrow 9am" },
-      ggroof: { short: "Friday, ~$600", email: "Friday morning, ballpark $600.", sorted: "Golden Gate Roof Co. is coming Friday, ~$600.", when: "Friday" },
-      sunsetroof: { short: "next week, ~$550", email: "Next Tuesday, around $550.", sorted: "Sunset Roofers is coming next Tuesday, ~$550.", when: "next Tuesday" },
-    },
-    vouch: { stars: 5, price: "$450", pricePaid: 450, note: "Summit Roofing. Patched our leak, $450 ★5 ✅" },
+    trade: "roofers",
+    keywords: ["roof", "ceiling", "shingle", "gutter", "attic", "rain"],
+    providerIds: ["summit", "sunset", "ggroof", "patchwork", "tarpit", "skyline"],
+    alsoChecked: 3,
+    activity: ["Reading what you sent…", "Asking 8 neighbors' guys about roofers…", "Checking 9 nearby pros…"],
+    transcripts: { yes: "Patched it in a morning, $450, dry since.", no: "Still dripping after. Not great." },
   },
-  legal: {
-    key: "legal",
-    label: "Legal notice",
-    title: "Legal notice",
-    trade: "lawyer",
-    tradeLabel: "tenant lawyer",
-    urgency: "soon",
-    safety: "Don't sign or reply yet. You've got 14 days.",
-    question: `Who did your humans use for a landlord notice? ${ZIP}`,
-    emailAsk: "Got a 14-day notice from my landlord. Can you review it this week?",
-    publicIds: ["baylegal", "missiontenant", "hartcole"],
-    offline: [],
-    replies: {
-      baylegal: { short: "Thu 11am, free consult", email: "Thursday 11am, free 30-min consult.", sorted: "Bay Legal Aid will see you Thu 11am, free consult.", when: "Thu 11am" },
-      missiontenant: { short: "Mon, $350/hr", email: "Monday afternoon, $350/hr.", sorted: "Mission Tenant Law will see you Monday, $350/hr.", when: "Monday" },
-      hartcole: { short: "next week, $400/hr", email: "Next week, $400/hr.", sorted: "Hart & Cole will see you next week, $400/hr.", when: "next week" },
-    },
-    vouch: { stars: 5, price: "free", note: "Bay Legal Aid. Sorted my landlord notice, free ★5 ✅" },
-  },
-};
-
-export const SCENARIO_ORDER: ScenarioKey[] = ["pipe", "roof", "legal"];
-
-/** People reached when a vouch is shared (households × people). */
-export const HELPED_PEOPLE = 14;
+];
