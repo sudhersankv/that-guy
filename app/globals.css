@@ -1,0 +1,174 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Neo-brutalist sticker theme. The page (paper/ink/muted/shadow) flips with the
+ * theme; stickers and cards keep their flat colors and ink outlines in both,
+ * so card text is always ink-on-cream (AA everywhere).
+ */
+:root {
+  --paper: #fff4e0;
+  --ink: #141210;
+  --muted: #5a5047;
+  --shadow: #141210;
+  --outer: #f1e4c9;
+  color-scheme: light;
+}
+
+html.dark {
+  --paper: #241f1b;
+  --ink: #fff4e0;
+  --muted: #d9ccba;
+  --shadow: #000000;
+  --outer: #171310;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-outer: var(--outer);
+  --color-shade: var(--shadow);
+
+  /* Fixed sticker palette */
+  --color-card: #fffbf0;
+  --color-cardink: #141210;
+  --color-cardmuted: #5a5047;
+  --color-line: #141210;
+  --color-orange: #ff6b1a;
+  --color-yellow: #ffd23f;
+  --color-mint: #7ee8c2;
+  --color-pink: #ff9ebb;
+  --color-sky: #9ad1ff;
+  --color-stamp: #c2301c;
+
+  /* Back-compat aliases */
+  --color-bg: var(--paper);
+  --color-fg: var(--ink);
+  --color-accent: #ff6b1a;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Bricolage Grotesque", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-hand: "Caveat", "Comic Sans MS", cursive;
+}
+
+html,
+body {
+  background: var(--outer);
+  color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+@layer components {
+  /* Chunky outline + hard offset shadow */
+  .sticker {
+    border: 2.5px solid #141210;
+    box-shadow: 4px 4px 0 var(--shadow);
+    border-radius: 18px;
+  }
+  .sticker-sm {
+    border: 2px solid #141210;
+    box-shadow: 3px 3px 0 var(--shadow);
+    border-radius: 14px;
+  }
+  /* Pressable: squish into the shadow */
+  .press {
+    transition:
+      transform 0.08s ease,
+      box-shadow 0.08s ease;
+  }
+  .press:active:not(:disabled) {
+    transform: translate(3px, 3px);
+    box-shadow: 1px 1px 0 var(--shadow);
+  }
+
+  /* Cream card stock with a subtle noise texture */
+  .paper {
+    background-color: #fffbf0;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.35  0 0 0 0 0.25  0 0 0 0 0.1  0 0 0 0.09 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    color: #141210;
+  }
+  .page-paper {
+    background-color: var(--paper);
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.4  0 0 0 0 0.3  0 0 0 0 0.15  0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  /* Index-card ruling for the Rolodex */
+  .ruled {
+    background-image:
+      linear-gradient(#ffd0c2, #ffd0c2), repeating-linear-gradient(to bottom, transparent 0 21px, #cfe3f7 21px 22px);
+    background-size:
+      100% 2px,
+      100% 100%;
+    background-position:
+      0 30px,
+      0 31px;
+    background-repeat: no-repeat, repeat;
+  }
+
+  .font-hand {
+    font-family: var(--font-hand);
+  }
+}
+
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.pt-safe {
+  padding-top: max(env(safe-area-inset-top), 0.75rem);
+}
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+}
+
+:focus-visible {
+  outline: 3px solid #ff6b1a;
+  outline-offset: 2px;
+}
+
+@keyframes wave {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
