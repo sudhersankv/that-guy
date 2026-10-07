@@ -22,6 +22,10 @@ export function triagePrompt(text: string, area: string, allowQuestion: boolean,
 
 Problem from a homeowner in ${area}: """${text || "(voice/video only, no text)"}"""
 ${answer ? `They answered your follow-up: """${answer}"""` : ""}
+We already know their location. Never ask where they are.
+title: 2-6 words, plain (e.g. "Burst pipe under the sink"). trade: one singular word.
+search: 1-3 word Google Maps query (e.g. "emergency plumber"). keywords: 3-6 single lowercase words.
+question: only if it changes who to hire or urgency; quickReplies must be 2-4 short options.
 Return JSON: {"title": string, "trade": string, "search": string, "keywords": string[],
  "question": ${allowQuestion ? '{"text": string, "quickReplies": string[]} or null' : "null"}}`;
 }
@@ -49,7 +53,7 @@ async function agent37(input: string, sessionId?: string, timeoutMs = 150_000) {
   if (!url || !process.env.AGENT37_KEY) throw new Error("Agent37 not configured");
   const res = await fetch(`${url.replace(/\/$/, "")}/v1/responses`, {
     method: "POST",
-    headers: { "X-Agent37-Key": process.env.AGENT37_KEY, "Content-Type": "application/json" },
+    headers: { "X-Agent37-Key": process.env.AGENT37_KEY.trim(), "Content-Type": "application/json" },
     body: JSON.stringify({ input, ...(sessionId ? { session_id: sessionId } : {}), stream: false }),
     signal: AbortSignal.timeout(timeoutMs),
   });

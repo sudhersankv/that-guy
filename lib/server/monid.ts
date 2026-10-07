@@ -51,15 +51,17 @@ export interface Place {
 }
 
 // Pinned after `discover` (see scripts/monid-discover.mjs). Overridable via env.
-const PLACES_PROVIDER = () => process.env.MONID_PLACES_PROVIDER || "apify";
-const PLACES_ENDPOINT = () => process.env.MONID_PLACES_ENDPOINT || "/compass/crawler-google-places";
+// dataforseo /serp/google-maps: live Google Maps results, ~9s p50.
+const PLACES_PROVIDER = () => process.env.MONID_PLACES_PROVIDER || "dataforseo";
+const PLACES_ENDPOINT = () => process.env.MONID_PLACES_ENDPOINT || "/serp/google-maps";
 
 type Raw = Record<string, unknown>;
 const num = (x: unknown) => (typeof x === "number" ? x : typeof x === "string" && x ? Number(x) : undefined);
 const str = (x: unknown) => (typeof x === "string" && x ? x : undefined);
 
 function toPlace(r: Raw): Place | null {
-  const loc = (r.location ?? r.gps_coordinates ?? r.coordinates ?? {}) as Raw;
+  const loc = (r.location ?? r.gps_coordinates ?? r.coordinates ?? r) as Raw;
+  const rating = (typeof r.rating === "object" && r.rating ? r.rating : {}) as Raw;
   const id = str(r.placeId) ?? str(r.place_id) ?? str(r.id) ?? str(r.cid);
   const name = str(r.title) ?? str(r.name);
   if (!id || !name) return null;
@@ -67,17 +69,19 @@ function toPlace(r: Raw): Place | null {
     id,
     name,
     category: str(r.categoryName) ?? str(r.category) ?? str(r.type),
-    phone: str(r.phoneUnformatted) ?? str(r.phone),
-    website: str(r.website),
+    phone: (str(r.phoneUnformatted) ?? str(r.phone))?.replace(/[^\d+]/g, ""),
+    website: str(r.website) ?? str(r.url),
     address: str(r.address),
-    rating: num(r.totalScore) ?? num(r.rating),
-    reviews: num(r.reviewsCount) ?? num(r.reviews) ?? num(r.user_ratings_total),
+    rating: num(r.totalScore) ?? num(rating.value) ?? num(r.rating),
+    reviews: num(r.reviewsCount) ?? num(rating.votes_count) ?? num(r.reviews) ?? num(r.user_ratings_total),
     lat: num(loc.lat) ?? num(loc.latitude),
     lng: num(loc.lng) ?? num(loc.longitude),
   };
 }
 
 function itemsOf(data: unknown): Raw[] {
+  // dataforseo: [{ items: [...] }]
+  if (Array.isArray(data) && data.length && Array.isArray((data[0] as Raw)?.items)) return (data[0] as Raw).items as Raw[];
   if (Array.isArray(data)) return data as Raw[];
   const d = data as Raw;
   for (const k of ["items", "results", "places", "local_results", "data"]) if (Array.isArray(d?.[k])) return d[k] as Raw[];
@@ -87,11 +91,10 @@ function itemsOf(data: unknown): Raw[] {
 /** Google Maps businesses for a search near a point. Businesses only. */
 export async function placesNear(search: string, lat: number, lng: number, max = 8): Promise<Place[]> {
   const data = await run(PLACES_PROVIDER(), PLACES_ENDPOINT(), {
-    searchStringsArray: [search],
-    customGeolocation: { type: "Point", coordinates: [lng, lat], radiusKm: 8 },
-    maxCrawledPlacesPerSearch: max,
-    language: "en",
-    skipClosedPlaces: true,
+    keyword: search,
+    location_coordinate: `${lat},${lng},8000`,
+    language_code: "en",
+    depth: 20,
   });
   return itemsOf(data)
     .map(toPlace)
