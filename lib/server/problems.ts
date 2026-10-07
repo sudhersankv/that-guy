@@ -183,7 +183,7 @@ const networkLine = (s: NetworkSignal) =>
 /** Runs in the background after submit / answer. Writes activity lines as it goes. */
 export async function work(id: string) {
   try {
-    let row = await patch(id, (p) => (p.activity = "Reading what you sent…"));
+    let row = await patch(id, (p, m) => (p.activity = m.answer ? "Got it. Thinking it through…" : "Reading what you sent…"));
     const { meta } = row;
     const here = { lat: meta.lat, lng: meta.lng };
 
@@ -258,7 +258,7 @@ export async function work(id: string) {
       if (c.signal.warning) lines.push(...badLines(c.provider, "Careful with"));
     }
     for (const c of dropped) lines.push(...badLines(c.provider, "Skip"));
-    if (!lines.length) lines.push(`No neighbor has used a ${trade} nearby yet. Going on public reviews.`);
+    if (!lines.length) lines.push(`No neighbor has used ${/^[aeiou]/.test(trade) ? "an" : "a"} ${trade} nearby yet. Going on public reviews.`);
     for (const line of lines.slice(0, 7)) {
       await patch(id, (p) => (p.activity = line));
       await new Promise((s) => setTimeout(s, 1600));
