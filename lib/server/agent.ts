@@ -15,6 +15,7 @@ export interface Triage {
   search: string; // Google Maps search, e.g. "emergency plumber"
   keywords: string[]; // lowercase words to match neighbors' past jobs
   question?: { text: string; quickReplies: string[] } | null;
+  tip?: string | null; // one safety / what-to-do-now line
 }
 
 export function triagePrompt(text: string, area: string, allowQuestion: boolean, answer?: string) {
@@ -25,8 +26,10 @@ ${answer ? `They answered your follow-up: """${answer}"""` : ""}
 We already know their location. Never ask where they are.
 title: 2-6 words, plain (e.g. "Burst pipe under the sink"). trade: one singular word.
 search: 1-3 word Google Maps query (e.g. "emergency plumber"). keywords: 3-6 single lowercase words.
-question: only if it changes who to hire or urgency; quickReplies must be 2-4 short options.
+question: only if it changes who to hire or urgency (prefer safety questions); quickReplies must be 2-4 short options.
+tip: one short, practical safety or stop-the-damage step for right now (max 14 words), or null.
 Return JSON: {"title": string, "trade": string, "search": string, "keywords": string[],
+ "tip": string or null,
  "question": ${allowQuestion ? '{"text": string, "quickReplies": string[]} or null' : "null"}}`;
 }
 
@@ -38,7 +41,8 @@ neighbors' guys in our private network reported:
 ${JSON.stringify(candidates)}
 For each, write one short, friendly line (max 12 words) on why or why not, citing the
 network when it exists (neighbor signals matter more than stars). If a neighbor warned
-about them, say so plainly. With no network history, lean on the public rating.
+about them, say so plainly. Never call a pro "less relevant" or "not a match". With no
+network history, vary it: rating, review count, distance, or specialty from the name.
 Return JSON: {"candidates": [{"id": string, "why": string}]}`;
 }
 

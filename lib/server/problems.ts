@@ -139,6 +139,9 @@ async function findPlaces(triage: Triage, here: { lat: number; lng: number }): P
   const cacheKey = `${triage.trade.toLowerCase()}:${here.lat.toFixed(2)},${here.lng.toFixed(2)}`;
   try {
     const places: Place[] = await placesNear(triage.search, here.lat, here.lng, 10, triage.trade);
+    const prefix = triage.trade.toLowerCase().slice(0, 4);
+    const fit = places.filter((p) => !p.category || p.category.toLowerCase().includes(prefix));
+    if (fit.length >= 3) places.splice(0, places.length, ...fit);
     if (!places.length) throw new Error("no places");
     const rows: ProviderRow[] = places.map((p) => ({
       id: p.id,
@@ -213,8 +216,12 @@ export async function work(id: string) {
     row = await patch(id, (p, m) => {
       m.triage = triage;
       p.title = triage.title || p.title;
-      p.activity = `Checking nearby ${trade}s on Google Maps…`;
+      p.activity = triage.tip ? `First: ${triage.tip}` : `Checking nearby ${trade}s on Google Maps…`;
     });
+    if (triage.tip) {
+      await new Promise((s) => setTimeout(s, 3500));
+      await patch(id, (p) => (p.activity = `Checking nearby ${trade}s on Google Maps…`));
+    }
 
     const places = await findPlaces(triage, here);
     await patch(id, (p) => (p.activity = `Found ${places.length} ${trade}s on Google Maps. Asking the neighbors' guys…`));
@@ -226,7 +233,7 @@ export async function work(id: string) {
     const reviews = reviewRows.map(toReview);
     const guyNames = Object.fromEntries(guys.map((g) => [g.id, g.name === "Me" ? "Your guy" : g.name]));
     const providers = places.map((r) => toProvider(r, here));
-    const { candidates, summary } = rank(providers, triage.keywords, reviews, guyNames);
+    const { candidates, summary, dropped } = rank(providers, triage.keywords, reviews, guyNames);
 
     // The agent writes the why lines while we show the network answering.
     const whyJob = ask<{ candidates: { id: string; why: string }[] }>(
@@ -240,18 +247,19 @@ export async function work(id: string) {
       return null;
     });
 
-    // Agent-to-agent: each neighbor's guy reports what actually happened.
-    const nameOf = Object.fromEntries(places.map((p) => [p.id, p.name]));
-    const lines = [...reviews]
-      .sort((x, y) => Number(x.outcome === "great") - Number(y.outcome === "great") || y.date.localeCompare(x.date))
-      .slice(0, 6)
-      .map((r) =>
-        r.outcome === "great" || r.outcome === "ok"
-          ? `${guyNames[r.guyId] ?? "A neighbor's guy"}: "${nameOf[r.providerId]}? ${r.quote}${r.price ? `, ~$${r.price}` : ""}."`
-          : `${guyNames[r.guyId] ?? "A neighbor's guy"}: "Skip ${nameOf[r.providerId]}. ${r.quote}."`,
-      );
+    const badLines = (p: Provider, verb: string) =>
+      reviews
+        .filter((r) => r.providerId === p.id && (r.outcome === "bad" || r.outcome === "no_show"))
+        .map((r) => `${guyNames[r.guyId] ?? "A neighbor's guy"}: "${verb} ${p.name}. ${r.quote}."`);
+    // Agent-to-agent: the neighbors' guys behind each card (and each drop) answer.
+    const lines: string[] = [];
+    for (const c of candidates) {
+      if (c.signal.quote) lines.push(`${c.signal.quote.by}: "${c.provider.name}? ${c.signal.quote.text}."`);
+      if (c.signal.warning) lines.push(...badLines(c.provider, "Careful with"));
+    }
+    for (const c of dropped) lines.push(...badLines(c.provider, "Skip"));
     if (!lines.length) lines.push(`No neighbor has used a ${trade} nearby yet. Going on public reviews.`);
-    for (const line of lines) {
+    for (const line of lines.slice(0, 7)) {
       await patch(id, (p) => (p.activity = line));
       await new Promise((s) => setTimeout(s, 1600));
     }

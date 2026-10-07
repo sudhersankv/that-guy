@@ -58,9 +58,9 @@ export function rank(
   const asked = new Set(reviews.filter((r) => providers.some((p) => p.id === r.providerId)).map((r) => r.guyId)).size;
   const summary =
     `Your guy checked ${all.length} nearby pros` +
-    (asked ? `, heard from ${asked} neighbors' guys,` : "") +
-    ` and dropped ${dropped.length} with bad reviews.`;
-  return { candidates, summary };
+    (asked ? ` and heard from ${asked} neighbors' guys` : ", no neighbor history yet") +
+    (dropped.length ? `. Dropped ${dropped.length} with bad reviews.` : ".");
+  return { candidates, summary, dropped };
 }
 
 export function milesBetween(a: { lat: number; lng: number }, b: { lat?: number; lng?: number }) {
