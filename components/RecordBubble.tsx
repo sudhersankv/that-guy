@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion, useTransform, type MotionValue } from "framer-motion";
-import { Mic, Video, VideoOff } from "lucide-react";
+import { Mic, SwitchCamera, Video, VideoOff } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { useRecorder, type Recording } from "@/lib/useRecorder";
 import { toast } from "./Toast";
@@ -280,6 +280,15 @@ export function RecordBubble({
           >
             {videoOn ? <Video size={20} strokeWidth={2.4} /> : <VideoOff size={20} strokeWidth={2.4} />}
           </CtrlButton>
+          {videoOn && !noMedia && (
+            <CtrlButton
+              label={rec.facingMode === "environment" ? "Switch to front camera" : "Switch to back camera"}
+              onClick={rec.flip}
+              disabled={recording}
+            >
+              <SwitchCamera size={20} strokeWidth={2.4} />
+            </CtrlButton>
+          )}
           {extraControls}
         </div>
       )}

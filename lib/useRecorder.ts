@@ -50,7 +50,7 @@ function stopRecorder(rec: MediaRecorder | null, chunks: Blob[]): Promise<Blob |
 /**
  * Camera + mic for the hold-to-record bubble.
  *
- * - Live preview stream via getUserMedia (front camera by default).
+ * - Live preview stream via getUserMedia (back camera by default; flip to front).
  * - While recording: audio (and the full clip) via MediaRecorder, a JPEG frame
  *   every second for the backend (last N kept), and a live volume `level`
  *   (0..1 motion value) for the doodles.
@@ -76,7 +76,7 @@ export function useRecorder({ maxMs = 60_000, maxFrames = 6, frameIntervalMs = 1
 
   const level = useMotionValue(0);
   const [permission, setPermission] = useState<MediaPermission>("pending");
-  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
   const [videoOn, setVideoOn] = useState(initialVideo);
   const [recording, setRecording] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
