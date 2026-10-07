@@ -17,7 +17,7 @@ const sb = async (method, path, body, prefer = "return=minimal") => {
 };
 
 async function places(keyword) {
-  let r = await (await fetch("https://api.monid.ai/v1/run", { method: "POST", headers: MH, body: JSON.stringify({ provider: "dataforseo", endpoint: "/serp/google-maps", input: { body: { keyword, location_coordinate: `${lat},${lng},8000`, language_code: "en", depth: 20 } } }) })).json();
+  let r = await (await fetch("https://api.monid.ai/v1/run", { method: "POST", headers: MH, body: JSON.stringify({ provider: "dataforseo", endpoint: "/serp/google-maps", input: { body: { keyword, location_coordinate: `${lat},${lng},15000`, language_code: "en", depth: 20 } } }) })).json();
   while (!["COMPLETED", "FAILED", "BLOCKED"].includes(r.status)) {
     await new Promise((s) => setTimeout(s, 2000));
     r = await (await fetch(`https://api.monid.ai/v1/runs/${r.runId}`, { headers: MH })).json();
@@ -53,9 +53,20 @@ const NEIGHBORS = ["leo", "priya", "dana", "sam", "ana", "raj", "wen", "marco"];
 const day = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
 
 await sb("DELETE", "reviews?guy_id=neq.me");
-const results = await Promise.all(Object.entries(TRADES).map(async ([trade, t]) => [trade, t, await places(t.search)]));
+const merged = async (kws) => {
+  const all = (await Promise.all(kws.map(places))).flat();
+  return [...new Map(all.map((i) => [i.place_id, i])).values()];
+};
+const fits = (trade) => (i) => [i.category, ...(i.additional_categories ?? [])].some((c) => (c ?? "").toLowerCase().includes(trade.toLowerCase().slice(0, 4)));
+const primary = (trade) => (i) => (i.category ?? "").toLowerCase().includes(trade.toLowerCase().slice(0, 4));
+const pick = (trade, items) => {
+  const rated = items.filter((i) => i.rating?.value != null);
+  const best = rated.filter(primary(trade));
+  return best.length >= 6 ? best : [...best, ...rated.filter((i) => !primary(trade)(i) && fits(trade)(i))];
+};
+const results = await Promise.all(Object.entries(TRADES).map(async ([trade, t]) => [trade, t, pick(trade, await merged([t.search, `${t.search}s`, `emergency ${t.search}`, `${t.search} near me`, `${t.search} san francisco`]))]));
 for (const [trade, t, items] of results) {
-  const rows = items.map((i) => ({
+  const rows = items.slice(0, 10).map((i) => ({
     id: i.place_id, name: i.title, trade, phone: (i.phone ?? "").replace(/[^\d+]/g, ""), website: i.url ?? null,
     address: i.address ?? null, rating: i.rating?.value ?? null, reviews: i.rating?.votes_count ?? null, lat: i.latitude ?? null, lng: i.longitude ?? null,
   }));
@@ -66,8 +77,8 @@ for (const [trade, t, items] of results) {
   const used = new Set();
   const take = (p) => (p && used.add(p.id), p);
   const warned = take(rated[0]);
-  const vouched = take(rated.filter((r) => !used.has(r.id)).at(-1));
-  const gem = take(rows.filter((r) => !used.has(r.id)).sort((a, b) => (a.reviews ?? 0) - (b.reviews ?? 0))[0]);
+  const vouched = take(rated.filter((r) => !used.has(r.id) && (r.reviews ?? 0) >= 8).at(-1) ?? rated.filter((r) => !used.has(r.id)).at(-1));
+  const gem = take(rows.filter((r) => !used.has(r.id) && (r.reviews ?? 0) > 0).sort((a, b) => (a.reviews ?? 0) - (b.reviews ?? 0))[0]);
   const dropped = take(rated.filter((r) => !used.has(r.id))[0]);
   const ok = take(rows.find((r) => !used.has(r.id)));
   let n = 0;

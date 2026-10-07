@@ -92,7 +92,7 @@ function itemsOf(data: unknown): Raw[] {
 export async function placesNear(search: string, lat: number, lng: number, max = 8): Promise<Place[]> {
   const data = await run(PLACES_PROVIDER(), PLACES_ENDPOINT(), {
     keyword: search,
-    location_coordinate: `${lat},${lng},8000`,
+    location_coordinate: `${lat},${lng},15000`,
     language_code: "en",
     depth: 20,
   });
