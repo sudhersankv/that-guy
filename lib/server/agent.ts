@@ -36,8 +36,9 @@ export function whyPrompt(title: string, candidates: { id: string; name: string;
 Job: ${title}. Here are nearby businesses with their public Google rating and what
 neighbors' guys in our private network reported:
 ${JSON.stringify(candidates)}
-For each, write one short line (max 12 words) on why or why not, citing the network
-when it exists (neighbor signals matter more than stars).
+For each, write one short, friendly line (max 12 words) on why or why not, citing the
+network when it exists (neighbor signals matter more than stars). If a neighbor warned
+about them, say so plainly. With no network history, lean on the public rating.
 Return JSON: {"candidates": [{"id": string, "why": string}]}`;
 }
 

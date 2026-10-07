@@ -49,6 +49,11 @@ export function rank(
     .filter((c) => !dropped.includes(c))
     .sort((a, b) => score(b.provider, b.signal) - score(a.provider, a.signal))
     .slice(0, deckSize);
+  // Keep one warned high-star pro in the deck (last) so the warning is visible.
+  const warned = all
+    .filter((c) => !dropped.includes(c) && c.signal.warning && !kept.includes(c))
+    .sort((a, b) => (b.provider.rating ?? 0) - (a.provider.rating ?? 0))[0];
+  if (warned && !kept.some((c) => c.signal.warning)) kept.splice(Math.min(kept.length, deckSize - 1), 1, warned);
   const candidates: Candidate[] = kept.map((c, i) => ({ ...c, rank: i + 1 }));
   const asked = new Set(reviews.filter((r) => providers.some((p) => p.id === r.providerId)).map((r) => r.guyId)).size;
   const summary =
