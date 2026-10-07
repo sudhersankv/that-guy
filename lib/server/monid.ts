@@ -88,8 +88,38 @@ function itemsOf(data: unknown): Raw[] {
   return [];
 }
 
-/** Google Maps businesses for a search near a point. Businesses only. */
-export async function placesNear(search: string, lat: number, lng: number, max = 8): Promise<Place[]> {
+const CATEGORY: Record<string, string> = {
+  roofer: "roofing_contractor",
+  roofing: "roofing_contractor",
+  hvac: "hvac_contractor",
+  handyman: "handyman",
+  cleaner: "house_cleaning_service",
+  painter: "painter",
+  mover: "moving_company",
+  pest: "pest_control_service",
+  appliance: "appliance_repair_service",
+};
+const categoryFor = (trade: string) => {
+  const t = trade.toLowerCase().trim();
+  return CATEGORY[t] ?? CATEGORY[t.split(/\s+/)[0]] ?? t.replace(/\s+/g, "_");
+};
+
+/** Google Maps businesses for a trade near a point. Businesses only. */
+export async function placesNear(search: string, lat: number, lng: number, max = 10, trade = search): Promise<Place[]> {
+  // Google Maps listings database by category: fast (~3s) and plenty of results.
+  try {
+    const data = await run("dataforseo", "/business/listings", {
+      categories: [categoryFor(trade)],
+      location_coordinate: `${lat},${lng},6`,
+      limit: max,
+      order_by: ["rating.votes_count,desc"],
+    });
+    const out = itemsOf(data).map(toPlace).filter((p): p is Place => !!p);
+    if (out.length >= 3) return out.slice(0, max);
+  } catch (e) {
+    console.warn("[monid] listings failed:", (e as Error).message);
+  }
+  // Fallback: live Google Maps search.
   const data = await run(PLACES_PROVIDER(), PLACES_ENDPOINT(), {
     keyword: search,
     location_coordinate: `${lat},${lng},15000`,

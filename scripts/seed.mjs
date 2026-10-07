@@ -16,8 +16,8 @@ const sb = async (method, path, body, prefer = "return=minimal") => {
   if (!r.ok) throw new Error(`${method} ${path} ${r.status} ${await r.text()}`);
 };
 
-async function places(keyword) {
-  let r = await (await fetch("https://api.monid.ai/v1/run", { method: "POST", headers: MH, body: JSON.stringify({ provider: "dataforseo", endpoint: "/serp/google-maps", input: { body: { keyword, location_coordinate: `${lat},${lng},15000`, language_code: "en", depth: 20 } } }) })).json();
+async function listings(category) {
+  let r = await (await fetch("https://api.monid.ai/v1/run", { method: "POST", headers: MH, body: JSON.stringify({ provider: "dataforseo", endpoint: "/business/listings", input: { body: { categories: [category], location_coordinate: `${lat},${lng},6`, limit: 25, order_by: ["rating.votes_count,desc"] } } }) })).json();
   while (!["COMPLETED", "FAILED", "BLOCKED"].includes(r.status)) {
     await new Promise((s) => setTimeout(s, 2000));
     r = await (await fetch(`https://api.monid.ai/v1/runs/${r.runId}`, { headers: MH })).json();
@@ -28,21 +28,21 @@ async function places(keyword) {
 
 const TRADES = {
   Plumber: {
-    search: "plumber",
+    search: "plumber", category: "plumber",
     warn: ["no_show", "Booked twice, never showed up"],
     bad: [["bad", "Leak was back in a week", 180], ["no_show", "No-show, no call", null]],
     good: [["Fixed our burst pipe same day", 260], ["Came in an hour, fair price", 240], ["Honest quote, no upsell on the water heater", 300], ["Unclogged the main line, super tidy", 220]],
     gem: [["Small shop, owner came himself and fixed the leak for good", 210], ["Cleared our kitchen drain fast and cheap", 160]],
   },
   Roofer: {
-    search: "roofer",
+    search: "roofer", category: "roofing_contractor",
     warn: ["no_show", "Quoted $900, then ghosted"],
     bad: [["bad", "Leak got worse after", 600], ["bad", "Left debris all over the yard", 450]],
     good: [["Fixed our flashing, dry since", 450], ["Same-day tarp, then a proper fix", 520], ["Fair price on a roof leak repair", 380]],
     gem: [["Patched our leak in a morning, dry all winter", 400], ["Honest: said we didn't need a new roof", 250]],
   },
   Electrician: {
-    search: "electrician",
+    search: "electrician", category: "electrician",
     warn: ["bad", "Breaker kept tripping after they left"],
     bad: [["bad", "Wrong panel part, had to redo", 700], ["no_show", "Took a deposit, never came", 200]],
     good: [["Rewired the kitchen, clean work", 900], ["Fixed our dead outlets same day", 180], ["Upfront price, no surprises", 350]],
@@ -64,7 +64,7 @@ const pick = (trade, items) => {
   const best = rated.filter(primary(trade));
   return best.length >= 6 ? best : [...best, ...rated.filter((i) => !primary(trade)(i) && fits(trade)(i))];
 };
-const results = await Promise.all(Object.entries(TRADES).map(async ([trade, t]) => [trade, t, pick(trade, await merged([t.search, `${t.search}s`, `emergency ${t.search}`, `${t.search} near me`, `${t.search} san francisco`]))]));
+const results = await Promise.all(Object.entries(TRADES).map(async ([trade, t]) => [trade, t, pick(trade, await listings(t.category))]));
 for (const [trade, t, items] of results) {
   const rows = items.slice(0, 10).map((i) => ({
     id: i.place_id, name: i.title, trade, phone: (i.phone ?? "").replace(/[^\d+]/g, ""), website: i.url ?? null,
@@ -76,7 +76,7 @@ for (const [trade, t, items] of results) {
   const rated = rows.filter((r) => r.rating != null).sort((a, b) => b.rating - a.rating);
   const used = new Set();
   const take = (p) => (p && used.add(p.id), p);
-  const warned = take(rated[0]);
+  const warned = take([...rated].sort((a, b) => (b.reviews ?? 0) - (a.reviews ?? 0))[0]);
   const vouched = take(rated.filter((r) => !used.has(r.id) && (r.reviews ?? 0) >= 8).at(-1) ?? rated.filter((r) => !used.has(r.id)).at(-1));
   const gem = take(rows.filter((r) => !used.has(r.id) && (r.reviews ?? 0) > 0).sort((a, b) => (a.reviews ?? 0) - (b.reviews ?? 0))[0]);
   const dropped = take(rated.filter((r) => !used.has(r.id))[0]);

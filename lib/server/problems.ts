@@ -138,7 +138,7 @@ function fallbackTriage(text: string): Triage {
 async function findPlaces(triage: Triage, here: { lat: number; lng: number }): Promise<ProviderRow[]> {
   const cacheKey = `${triage.trade.toLowerCase()}:${here.lat.toFixed(2)},${here.lng.toFixed(2)}`;
   try {
-    const places: Place[] = await placesNear(triage.search, here.lat, here.lng, 8);
+    const places: Place[] = await placesNear(triage.search, here.lat, here.lng, 10, triage.trade);
     if (!places.length) throw new Error("no places");
     const rows: ProviderRow[] = places.map((p) => ({
       id: p.id,
@@ -160,7 +160,7 @@ async function findPlaces(triage: Triage, here: { lat: number; lng: number }): P
     const known = await select<ProviderRow>("providers", `trade=ilike.${encodeURIComponent(triage.trade.slice(0, 4))}*&limit=30`);
     const seen = new Set(rows.map((r) => r.id));
     const near = known.filter((k) => !seen.has(k.id) && milesBetween(here, { lat: k.lat, lng: k.lng }) < 6);
-    return [...rows, ...near].slice(0, 14);
+    return [...rows, ...near].slice(0, 15);
   } catch (e) {
     console.warn("[guy] monid failed, using cache:", (e as Error).message);
     const [cached] = await select<{ result: { ids: string[] } }>("agent_cache", `key=eq.${encodeURIComponent(cacheKey)}`);
