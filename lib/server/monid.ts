@@ -102,6 +102,12 @@ const CATEGORY: Record<string, string> = {
   mover: "moving_company",
   pest: "pest_control_service",
   appliance: "appliance_repair_service",
+  exterminator: "pest_control_service",
+  furniture: "furniture_repair_shop",
+  upholsterer: "upholstery_shop",
+  carpenter: "carpenter",
+  locksmith: "locksmith",
+  heating: "hvac_contractor",
 };
 const categoryFor = (trade: string) => {
   const t = trade.toLowerCase().trim();

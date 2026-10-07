@@ -25,7 +25,9 @@ Problem from a homeowner in ${area}: """${text || "(no words, see the attached i
 ${images ? `They attached ${images} photo(s)/video frame(s) of the problem: open and look at them, and use what you see.` : ""}
 ${answer ? `They answered your follow-up: """${answer}"""` : ""}
 We already know their location. Never ask where they are.
-title: 2-6 words, plain (e.g. "Burst pipe under the sink"). trade: one singular word.
+title: 2-6 words, plain (e.g. "Burst pipe under the sink").
+trade: exactly one of Plumber, Roofer, Electrician, Locksmith, HVAC, Handyman, Pest control,
+Appliance repair, Furniture repair, Painter, Cleaner, Mover; or another short Google Maps business type.
 search: 1-3 word Google Maps query (e.g. "emergency plumber"). keywords: 3-6 single lowercase words.
 question: only if it changes who to hire or urgency (prefer safety questions); quickReplies must be 2-4 short options.
 tip: one short, practical safety or stop-the-damage step for right now (max 14 words), or null.

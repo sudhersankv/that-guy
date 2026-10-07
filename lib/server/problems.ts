@@ -212,6 +212,10 @@ export async function work(id: string) {
       triage = fallbackTriage(`${meta.text ?? ""} ${meta.answer ?? ""}`);
     }
     triage.keywords = (triage.keywords ?? []).map((k) => k.toLowerCase());
+    // Canonical trade names, so the network's known pros match.
+    const SYN: Record<string, string> = { exterminator: "Pest control", pest: "Pest control", heating: "HVAC", "air conditioning": "HVAC", furnace: "HVAC", "water heater": "Plumber", roofing: "Roofer", electric: "Electrician", appliance: "Appliance repair", furniture: "Furniture repair" };
+    const t0 = (triage.trade || "Handyman").toLowerCase();
+    triage.trade = Object.entries(SYN).find(([k]) => t0.startsWith(k))?.[1] ?? triage.trade ?? "Handyman";
 
     if (triage.question?.text && !meta.answer) {
       await patch(id, (p, m) => {
@@ -236,7 +240,12 @@ export async function work(id: string) {
       await patch(id, (p) => (p.activity = `Checking nearby ${trade}s on Google Maps…`));
     }
 
-    const places = await findPlaces(triage, here);
+    let places = await findPlaces(triage, here);
+    if (places.length < 2 && triage.trade !== "Handyman") {
+      // Nothing for that trade nearby: a good handyman is the next best call.
+      await patch(id, (p) => (p.activity = `Not many ${trade}s nearby. Checking handymen too…`));
+      places = [...places, ...(await findPlaces({ ...triage, trade: "Handyman", search: "handyman" }, here))];
+    }
     await patch(id, (p) => (p.activity = `Found ${places.length} ${trade}s on Google Maps. Asking the neighbors' guys…`));
 
     const [reviewRows, guys] = await Promise.all([
