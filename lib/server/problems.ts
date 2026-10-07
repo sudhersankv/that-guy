@@ -152,10 +152,12 @@ async function findPlaces(triage: Triage, here: { lat: number; lng: number }): P
       lat: p.lat,
       lng: p.lng,
     }));
-    await upsert("providers", rows);
+    const existing = new Set((await select<{ id: string }>("providers", `select=id&id=${inList(rows.map((r) => r.id))}`)).map((r) => r.id));
+    const fresh = rows.filter((r) => !existing.has(r.id));
+    if (fresh.length) await upsert("providers", fresh);
     await upsert("agent_cache", { key: cacheKey, result: { ids: rows.map((r) => r.id) } });
     // Also consider pros of this trade the network already knows nearby.
-    const known = await select<ProviderRow>("providers", `trade=ilike.${encodeURIComponent(triage.trade)}&limit=20`);
+    const known = await select<ProviderRow>("providers", `trade=ilike.${encodeURIComponent(triage.trade.slice(0, 4))}*&limit=30`);
     const seen = new Set(rows.map((r) => r.id));
     const near = known.filter((k) => !seen.has(k.id) && milesBetween(here, { lat: k.lat, lng: k.lng }) < 6);
     return [...rows, ...near].slice(0, 14);
@@ -163,7 +165,7 @@ async function findPlaces(triage: Triage, here: { lat: number; lng: number }): P
     console.warn("[guy] monid failed, using cache:", (e as Error).message);
     const [cached] = await select<{ result: { ids: string[] } }>("agent_cache", `key=eq.${encodeURIComponent(cacheKey)}`);
     if (cached?.result.ids.length) return select<ProviderRow>("providers", `id=${inList(cached.result.ids)}`);
-    return select<ProviderRow>("providers", `trade=ilike.${encodeURIComponent(triage.trade)}&limit=8`);
+    return select<ProviderRow>("providers", `trade=ilike.${encodeURIComponent(triage.trade.slice(0, 4))}*&limit=12`);
   }
 }
 
