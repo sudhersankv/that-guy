@@ -1,5 +1,5 @@
 import { after } from "next/server";
-import { answerQuestion, work } from "@/lib/server/problems";
+import { answerQuestion, work, setImages } from "@/lib/server/problems";
 
 export const maxDuration = 300;
 
@@ -12,6 +12,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/problems/[id]/a
     text: (form.get("text") as string) || undefined,
     audio: audio instanceof Blob ? audio : null,
   });
+  setImages(id, form.getAll("image").filter((x): x is File => x instanceof Blob));
   after(() => work(id));
   return Response.json(problem);
 }

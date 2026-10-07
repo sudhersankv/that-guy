@@ -35,7 +35,7 @@ export function Composer({
   const [text, setText] = useState("");
   const [photos, setPhotos] = useState<{ file: File; url: string }[]>([]);
   const [voice, setVoice] = useState<VoiceNote | null>(null);
-  const [video, setVideo] = useState<{ frames: string[]; url?: string; ms: number } | null>(null);
+  const [video, setVideo] = useState<{ frames: string[]; audio: Blob | null; url?: string; ms: number } | null>(null);
   const [videoOpen, setVideoOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -52,7 +52,7 @@ export function Composer({
     if (!hasContent || busy) return;
     setBusy(true);
     try {
-      await onSubmit({ text: text.trim(), photos: photos.map((p) => p.file), audio: voice?.blob ?? null, videoFrames: video?.frames ?? [] });
+      await onSubmit({ text: text.trim(), photos: photos.map((p) => p.file), audio: voice?.blob ?? video?.audio ?? null, videoFrames: video?.frames ?? [] });
       setText("");
       setPhotos([]);
       setVoice(null);
@@ -64,7 +64,7 @@ export function Composer({
   };
 
   const onVideo = (r: Recording) => {
-    setVideo({ frames: r.frames, url: r.videoBlob ? URL.createObjectURL(r.videoBlob) : undefined, ms: r.durationMs });
+    setVideo({ frames: r.frames, audio: r.audioBlob, url: r.videoBlob ? URL.createObjectURL(r.videoBlob) : undefined, ms: r.durationMs });
     setVideoOpen(false);
   };
 

@@ -18,10 +18,11 @@ export interface Triage {
   tip?: string | null; // one safety / what-to-do-now line
 }
 
-export function triagePrompt(text: string, area: string, allowQuestion: boolean, answer?: string) {
+export function triagePrompt(text: string, area: string, allowQuestion: boolean, answer?: string, images = 0) {
   return `${INSTRUCTIONS}
 
-Problem from a homeowner in ${area}: """${text || "(voice/video only, no text)"}"""
+Problem from a homeowner in ${area}: """${text || "(no words, see the attached images)"}"""
+${images ? `They attached ${images} photo(s)/video frame(s) of the problem: open and look at them, and use what you see.` : ""}
 ${answer ? `They answered your follow-up: """${answer}"""` : ""}
 We already know their location. Never ask where they are.
 title: 2-6 words, plain (e.g. "Burst pipe under the sink"). trade: one singular word.
@@ -53,13 +54,34 @@ export function parseJson<T>(text: string): T {
   return JSON.parse(text.slice(s, e + 1)) as T;
 }
 
-async function agent37(input: string, sessionId?: string, timeoutMs = 150_000) {
+const a37 = () => (process.env.AGENT37_INSTANCE_URL ?? "").trim().replace(/\/$/, "");
+
+/** Put images on the instance's disk so the agent can look at them. */
+export async function uploadImages(problemId: string, images: Blob[]): Promise<string[]> {
+  if (!a37() || !process.env.AGENT37_KEY) return [];
+  const paths = await Promise.all(
+    images.map(async (img, i) => {
+      const path = `~/uploads/${problemId}-${i}.jpg`;
+      const res = await fetch(`${a37()}/v1/files/content?path=${encodeURIComponent(path)}`, {
+        method: "PUT",
+        headers: { "X-Agent37-Key": process.env.AGENT37_KEY!.trim() },
+        body: img,
+      });
+      if (!res.ok) throw new Error(`upload ${res.status} ${await res.text()}`);
+      const data = await res.json().catch(() => ({}));
+      return (data.path as string) ?? path;
+    }),
+  );
+  return paths;
+}
+
+async function agent37(input: string, sessionId?: string, files: string[] = [], timeoutMs = 150_000) {
   const url = process.env.AGENT37_INSTANCE_URL;
   if (!url || !process.env.AGENT37_KEY) throw new Error("Agent37 not configured");
   const res = await fetch(`${url.replace(/\/$/, "")}/v1/responses`, {
     method: "POST",
     headers: { "X-Agent37-Key": process.env.AGENT37_KEY.trim(), "Content-Type": "application/json" },
-    body: JSON.stringify({ input, ...(sessionId ? { session_id: sessionId } : {}), stream: false }),
+    body: JSON.stringify({ input, ...(sessionId ? { session_id: sessionId } : {}), ...(files.length ? { files } : {}), stream: false }),
     signal: AbortSignal.timeout(timeoutMs),
   });
   const data = (await res.json()) as { status?: string; output_text?: string; session_id?: string; error?: unknown };
@@ -85,9 +107,9 @@ async function openai(input: string) {
 }
 
 /** Ask the agent; JSON out. */
-export async function ask<T>(input: string, sessionId?: string): Promise<{ result: T; sessionId?: string; via: string }> {
+export async function ask<T>(input: string, sessionId?: string, files: string[] = []): Promise<{ result: T; sessionId?: string; via: string }> {
   try {
-    const r = await agent37(input, sessionId);
+    const r = await agent37(input, sessionId, files);
     return { result: parseJson<T>(r.text), sessionId: r.sessionId ?? sessionId, via: "agent37" };
   } catch (e) {
     console.warn("[agent] Agent37 failed, falling back:", (e as Error).message);

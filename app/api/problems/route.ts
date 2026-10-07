@@ -1,5 +1,5 @@
 import { after } from "next/server";
-import { listProblems, submitProblem, work } from "@/lib/server/problems";
+import { listProblems, submitProblem, work, setImages } from "@/lib/server/problems";
 
 export const maxDuration = 300;
 
@@ -18,6 +18,7 @@ export async function POST(req: Request) {
     lat: num("lat"),
     lng: num("lng"),
   });
+  setImages(problem.id, form.getAll("image").filter((x): x is File => x instanceof Blob));
   after(() => work(problem.id));
   return Response.json(problem);
 }

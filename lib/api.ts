@@ -8,6 +8,18 @@ async function json<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/** Photos and video frames go up as images so your guy can see the problem. */
+function addMedia(form: FormData, photos?: File[], frames?: string[]) {
+  (photos ?? []).slice(0, 3).forEach((f) => form.append("image", f));
+  (frames ?? []).filter((_, i, a) => a.length <= 3 || i % Math.ceil(a.length / 3) === 0).slice(0, 3).forEach((d, i) => {
+    const [, b64] = d.split(",");
+    const bin = atob(b64 ?? "");
+    const bytes = new Uint8Array(bin.length);
+    for (let j = 0; j < bin.length; j++) bytes[j] = bin.charCodeAt(j);
+    form.append("image", new Blob([bytes], { type: "image/jpeg" }), `frame-${i}.jpg`);
+  });
+}
+
 const post = <T>(path: string, body: FormData | object) =>
   fetch(path, {
     method: "POST",
@@ -40,6 +52,7 @@ export async function submitProblem(input: ProblemInput): Promise<Problem> {
   const form = new FormData();
   if (input.text) form.set("text", input.text);
   if (input.audio) form.set("audio", input.audio);
+  addMedia(form, input.photos, input.videoFrames);
   const here = await locate();
   if (here) {
     form.set("lat", String(here.lat));
@@ -61,6 +74,7 @@ export async function answerQuestion(id: string, answer: Answer): Promise<Proble
   const form = new FormData();
   if (answer.text) form.set("text", answer.text);
   if (answer.audio) form.set("audio", answer.audio);
+  addMedia(form, answer.photos, answer.videoFrames);
   return post<Problem>(`/api/problems/${encodeURIComponent(id)}/answer`, form);
 }
 

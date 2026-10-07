@@ -1,7 +1,7 @@
 // The real "your guy": problems live in Supabase, the agent works in the background.
 
 import type { Answer, DoneOutcome, Intro, NetworkSignal, Problem, Provider, Review } from "../types";
-import { ask, triagePrompt, whyPrompt, type Triage } from "./agent";
+import { ask, triagePrompt, uploadImages, whyPrompt, type Triage } from "./agent";
 import { inList, insert, select, update, upsert } from "./db";
 import { placesNear, type Place } from "./monid";
 import { milesBetween, rank } from "./rank";
@@ -53,6 +53,10 @@ interface ReviewRow {
   date: string;
   rating: number;
 }
+
+// Photos / video frames waiting for the agent (same server process).
+const pendingImages = new Map<string, Blob[]>();
+export const setImages = (id: string, images: Blob[]) => images.length && pendingImages.set(id, images.slice(0, 6));
 
 const uid = () => `p-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
@@ -111,6 +115,8 @@ const toProvider = (r: ProviderRow, here: { lat: number; lng: number }, why = ""
   rating: r.rating ?? undefined,
   reviews: r.reviews ?? undefined,
   why,
+  address: r.address ?? undefined,
+  mapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${r.name} ${r.address ?? ""}`.trim())}&query_place_id=${encodeURIComponent(r.id)}`,
 });
 
 const toReview = (r: ReviewRow): Review => ({
@@ -190,7 +196,14 @@ export async function work(id: string) {
     let triage: Triage;
     let sessionId = row.session_id ?? undefined;
     try {
-      const r = await ask<Triage>(triagePrompt(meta.text ?? "", AREA(), !meta.answer, meta.answer), sessionId);
+      const images = pendingImages.get(id) ?? [];
+      pendingImages.delete(id);
+      let files: string[] = [];
+      if (images.length) {
+        await patch(id, (p) => (p.activity = "Looking at what you showed me…"));
+        files = await uploadImages(id, images).catch((e) => (console.warn("[guy] image upload failed:", e.message), []));
+      }
+      const r = await ask<Triage>(triagePrompt(meta.text ?? "", AREA(), !meta.answer, meta.answer, files.length), sessionId, files);
       triage = r.result;
       sessionId = r.sessionId;
       meta.via = r.via;

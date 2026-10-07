@@ -22,6 +22,9 @@ export interface Provider {
   reviews?: number;
   /** One line from your guy on why this one. */
   why: string;
+  /** Google Maps page for the business. */
+  mapsUrl?: string;
+  address?: string;
 }
 
 export type ReviewOutcome = "great" | "ok" | "bad" | "no_show";

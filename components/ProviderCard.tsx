@@ -49,9 +49,21 @@ export function ProviderCard({ candidate }: { candidate: Candidate }) {
       <h3 className="mt-1 pr-20 text-[26px] font-extrabold leading-[1.02]">{p.name}</h3>
 
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-semibold">
-        <span className="inline-flex items-center gap-1">
-          <MapPin size={14} strokeWidth={2.6} /> {p.distanceMi} mi
-        </span>
+        {p.mapsUrl ? (
+          <a
+            href={p.mapsUrl}
+            target="_blank"
+            rel="noreferrer"
+            onPointerDown={(e) => e.stopPropagation()}
+            className="inline-flex items-center gap-1 underline decoration-dotted underline-offset-2"
+          >
+            <MapPin size={14} strokeWidth={2.6} /> {p.distanceMi} mi · Map
+          </a>
+        ) : (
+          <span className="inline-flex items-center gap-1">
+            <MapPin size={14} strokeWidth={2.6} /> {p.distanceMi} mi
+          </span>
+        )}
         {p.rating && (
           <span className="inline-flex items-center gap-1">
             <Star size={14} className="fill-yellow" strokeWidth={2.4} /> {p.rating.toFixed(1)}

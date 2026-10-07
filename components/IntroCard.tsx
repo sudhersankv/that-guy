@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, Mail, Phone } from "lucide-react";
+import { ChevronDown, Mail, MapPin, Phone } from "lucide-react";
 import { useState } from "react";
 import type { Intro } from "@/lib/types";
 import { formatPhone } from "./ProviderCard";
@@ -22,6 +22,11 @@ export function IntroCard({ intro, tilt = 0 }: { intro: Intro; tilt?: number }) 
           <div className="text-xs font-extrabold uppercase tracking-wider text-cardmuted">{p.trade}</div>
           <h3 className="truncate text-[22px] font-extrabold leading-tight">{p.name}</h3>
           <div className="text-sm font-semibold text-cardmuted">{formatPhone(p.phone)}</div>
+          {p.mapsUrl && (
+            <a href={p.mapsUrl} target="_blank" rel="noreferrer" className="mt-0.5 inline-flex items-center gap-1 text-sm font-bold underline decoration-dotted underline-offset-2">
+              <MapPin size={13} strokeWidth={2.6} /> {p.address ?? "Open in Google Maps"}
+            </a>
+          )}
         </div>
         <span className="mt-1 shrink-0 rotate-6 rounded-md border-2 border-line bg-mint px-1.5 py-0.5 text-[11px] font-extrabold">intro sent ✓</span>
       </div>
