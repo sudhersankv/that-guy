@@ -217,31 +217,51 @@ export async function work(id: string) {
     });
 
     const places = await findPlaces(triage, here);
-    await patch(id, (p) => (p.activity = `Asking 8 neighbors' guys about ${trade}s…`));
+    await patch(id, (p) => (p.activity = `Found ${places.length} ${trade}s on Google Maps. Asking the neighbors' guys…`));
 
     const [reviewRows, guys] = await Promise.all([
       places.length ? select<ReviewRow>("reviews", `provider_id=${inList(places.map((p) => p.id))}`) : [],
       select<{ id: string; name: string }>("guys"),
     ]);
     const reviews = reviewRows.map(toReview);
-    const guyNames = Object.fromEntries(guys.map((g) => [g.id, g.name]));
+    const guyNames = Object.fromEntries(guys.map((g) => [g.id, g.name === "Me" ? "Your guy" : g.name]));
     const providers = places.map((r) => toProvider(r, here));
     const { candidates, summary } = rank(providers, triage.keywords, reviews, guyNames);
 
-    await patch(id, (p) => (p.activity = "Writing up your shortlist…"));
-    try {
-      const r = await ask<{ candidates: { id: string; why: string }[] }>(
-        whyPrompt(
-          triage.title,
-          candidates.map((c) => ({ id: c.provider.id, name: c.provider.name, rating: c.provider.rating, reviews: c.provider.reviews, network: networkLine(c.signal) })),
-        ),
-        sessionId,
+    // The agent writes the why lines while we show the network answering.
+    const whyJob = ask<{ candidates: { id: string; why: string }[] }>(
+      whyPrompt(
+        triage.title,
+        candidates.map((c) => ({ id: c.provider.id, name: c.provider.name, rating: c.provider.rating, reviews: c.provider.reviews, network: networkLine(c.signal) })),
+      ),
+      sessionId,
+    ).catch((e) => {
+      console.warn("[guy] why failed:", (e as Error).message);
+      return null;
+    });
+
+    // Agent-to-agent: each neighbor's guy reports what actually happened.
+    const nameOf = Object.fromEntries(places.map((p) => [p.id, p.name]));
+    const lines = [...reviews]
+      .sort((x, y) => Number(x.outcome === "great") - Number(y.outcome === "great") || y.date.localeCompare(x.date))
+      .slice(0, 6)
+      .map((r) =>
+        r.outcome === "great" || r.outcome === "ok"
+          ? `${guyNames[r.guyId] ?? "A neighbor's guy"}: "${nameOf[r.providerId]}? ${r.quote}${r.price ? `, ~$${r.price}` : ""}."`
+          : `${guyNames[r.guyId] ?? "A neighbor's guy"}: "Skip ${nameOf[r.providerId]}. ${r.quote}."`,
       );
+    if (!lines.length) lines.push(`No neighbor has used a ${trade} nearby yet. Going on public reviews.`);
+    for (const line of lines) {
+      await patch(id, (p) => (p.activity = line));
+      await new Promise((s) => setTimeout(s, 1600));
+    }
+
+    await patch(id, (p) => (p.activity = "Writing up your shortlist…"));
+    const r = await whyJob;
+    if (r) {
       const whys = Object.fromEntries((r.result.candidates ?? []).map((c) => [c.id, c.why]));
       candidates.forEach((c) => (c.provider.why = whys[c.provider.id] ?? ""));
       sessionId = r.sessionId;
-    } catch (e) {
-      console.warn("[guy] why failed:", (e as Error).message);
     }
     candidates.forEach((c) => {
       if (!c.provider.why) c.provider.why = c.signal.vouches ? `${c.signal.vouches} neighbors vouch for them.` : "Strong public reviews nearby.";
