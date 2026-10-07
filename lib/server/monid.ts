@@ -34,7 +34,11 @@ export async function run(provider: string, endpoint: string, body: unknown, tim
     r = await call<Run>("GET", `/v1/runs/${encodeURIComponent(r.runId)}`);
   }
   if (r.status !== "COMPLETED") throw new Error(`monid run ${r.runId} ${r.status}`);
-  return r.providerResponse?.data ?? r.output;
+  let data = (r.providerResponse?.data ?? r.output) as { data?: { download_link?: string } } | unknown;
+  // Big results come back as a file link.
+  const link = (data as { data?: { download_link?: string } })?.data?.download_link;
+  if (link) data = await (await fetch(link)).json();
+  return data;
 }
 
 export interface Place {
